@@ -1,0 +1,42 @@
+#
+# Generic motor driver configuration
+#
+	
+menu "motor driver"
+
+menuconfig MOTOR_CLASS
+	tristate "Generic motor sysfs driver"
+	help
+		This option enables the motor sysfs class in /sys/class/motor. 
+		If you want this support, you should say Y or M here.
+
+config MOTOR_28BYJ_48
+	tristate "stepper motor 28byj-48"
+	help
+		say Y, if you want to enable 28BYJ-48
+
+config MOTOR_SYS_28BYJ_48
+	bool "stepper motor 28byj-48 with motor sysfs"
+	depends on MOTOR_CLASS
+	depends on MOTOR_28BYJ_48
+	help
+		say Y, if you want to enable 28BYJ-48 with motor sysfs
+
+config MOTOR_DC
+	tristate "dc motor"
+	help
+		say Y, if you want to add a dc motor
+
+config MOTOR_L293D_DC
+	tristate "motor driver: l293d for DC motor (car)"
+	depends on MOTOR_CLASS
+	help
+		say Y, if you want to add the l293d driver for dc motor 
+
+config MOTOR_L293D_STEPPER
+	tristate "motor driver: l293d for Stepper motor"
+	depends on MOTOR_CLASS
+	help
+		say Y, if you want to add the l293d driver for Stepper moto 
+		
+endmenu
