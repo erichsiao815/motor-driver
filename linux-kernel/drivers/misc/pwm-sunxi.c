@@ -12,10 +12,15 @@
  * - Removed bug that caused the PWM to pause quickly when changing parameters
  * - Dropped debug/dump functions
  *
- * 02.11.2015- Eric Hsiao <erichsiao815@gmail.com>
+ * 02.11.2015- CC Hsiao <erichsiao815@gmail.com>
  * - fixed pwm_config
  * - fixed pwm_set_mode
- * - no auto run if enabled by script.bin.
+ * - no auto run when pwm enabled by script.bin.
+ *
+ * 02.22.2015- CC Hsiao <erichsiao815@gmail.com>
+ * - act state default is 1 and backup act state.
+ * - pwm_enable will change the act state to 0 and let pwm pin output low.
+
  *
  * TODO:
  * - Implement duty_percent=0 to set pwm line to 0 - right now it goes to 100%
@@ -170,7 +175,7 @@ static int __init sunxi_pwm_init(void)
 	//PWM 0
 	//printk("pwm-sunxi: configuring pwm0...\n");
 	chan = &pwm_available_chan[0];
- 	
+ 	chan->ctrl_current.initializer = readl(chan->ctrl_addr);
 	init_enable=0;
 	init_period=0;
 	init_duty_percent=100;
@@ -203,6 +208,7 @@ static int __init sunxi_pwm_init(void)
 			act_state=1;
 		}
 		chan->ctrl_current.s.ch0_act_state = act_state;
+		chan->ctrl_backup.s.ch0_act_state = act_state;
 		chan->duty_percent=init_duty_percent;
 		chan->period = init_period; 
 		chan->prescale = pwm_get_best_prescale(init_period); 
@@ -220,7 +226,7 @@ static int __init sunxi_pwm_init(void)
 	//PWM 1
 	//printk("pwm-sunxi: configuring pwm1...\n");
 	chan = &pwm_available_chan[1];
- 	
+ 	chan->ctrl_current.initializer = readl(chan->ctrl_addr);
 	init_enable=0;
 	init_period=0;
 	init_duty_percent=100;
@@ -253,6 +259,7 @@ static int __init sunxi_pwm_init(void)
 			act_state=1;
 		}
 		chan->ctrl_current.s.ch1_act_state = act_state;
+		chan->ctrl_backup.s.ch1_act_state = act_state;
 		chan->duty_percent=init_duty_percent;
 		chan->period = init_period; 
 		chan->prescale = pwm_get_best_prescale(init_period); 
@@ -261,7 +268,7 @@ static int __init sunxi_pwm_init(void)
 		printk("pwm-sunxi: pwm0 set initial values\n");
 #endif
 		//e pwm_set_mode(init_enable,chan); 
-		pwm_set_mode(PWM_CTRL_DISABLE,chan); 	//no auto run.
+		pwm_set_mode(PWM_CTRL_DISABLE,chan); 	//no auto run, decide by script? 
 	}
 	return 0;
 } 
@@ -379,10 +386,12 @@ static ssize_t pwm_polarity_store(struct device *dev,struct device_attribute *at
 	if(act_state < 2) { 
 		switch (chan->channel) { 
 		case 0: 
-			chan->ctrl_current.s.ch0_act_state = act_state; 
+			chan->ctrl_current.s.ch0_act_state = act_state;
+			chan->ctrl_backup.s.ch0_act_state = act_state; 
 			break; 
 		case 1: 
 			chan->ctrl_current.s.ch1_act_state = act_state; 
+			chan->ctrl_backup.s.ch1_act_state = act_state; 
 			break; 
 		default: 
 			status = -EINVAL; 
@@ -681,12 +690,12 @@ ssize_t pwm_set_mode(unsigned int enable, struct sun4i_pwm_available_channel *ch
 			break; 
 		} 
 	} 
-	//e chan->ctrl_current.initializer = readl(chan->ctrl_addr); 
+	//e chan->ctrl_current.initializer = readl(chan->ctrl_addr);
 	if(enable == 1) { 
 		switch (chan->channel) {
 		case 0: 
 			chan->ctrl_current.s.ch0_prescaler = 0; 		//TBD!!
-			//e chan->ctrl_current.s.ch0_act_state = 0; 		//TBD!!
+			chan->ctrl_current.s.ch0_act_state = chan->ctrl_backup.s.ch0_act_state;
 			chan->ctrl_current.s.ch0_mode = 0; 			//TBD!!
 			chan->ctrl_current.s.ch0_pulse_start = 0; 		//TBD!!
 			chan->ctrl_current.s.ch0_en = 0; 			//TBD!!
@@ -694,7 +703,7 @@ ssize_t pwm_set_mode(unsigned int enable, struct sun4i_pwm_available_channel *ch
 			break; 
 		case 1: 
 			chan->ctrl_current.s.ch1_prescaler = 0; 		//TBD!!
-			//e chan->ctrl_current.s.ch1_act_state = 0; 		//TBD!!
+			chan->ctrl_current.s.ch1_act_state = chan->ctrl_backup.s.ch1_act_state;
 			chan->ctrl_current.s.ch1_mode = 0; 			//TBD!!
 			chan->ctrl_current.s.ch1_pulse_start = 0; 		//TBD!!
 			chan->ctrl_current.s.ch1_en = 0; 			//TBD!!
@@ -759,12 +768,14 @@ ssize_t pwm_set_mode(unsigned int enable, struct sun4i_pwm_available_channel *ch
 	} else if (enable == 0) { 
 		switch (chan->channel) { 
 		case 0: 
-			chan->ctrl_current.s.ch0_clk_gating = 0; 
+			chan->ctrl_current.s.ch0_clk_gating = 0;
+			chan->ctrl_current.s.ch0_act_state = 0;
 			chan->ctrl_current.s.ch0_en = enable; 
 			break; 
 		case 1: 
-			chan->ctrl_current.s.ch1_clk_gating = 0; 
-			chan->ctrl_current.s.ch1_en = enable; 
+			chan->ctrl_current.s.ch1_clk_gating = 0;
+			chan->ctrl_current.s.ch1_act_state = 0;
+			chan->ctrl_current.s.ch1_en = enable;
 			break; 
 		default: 
 			status = -EINVAL; 
@@ -890,7 +901,6 @@ int pwm_config(struct pwm_device *pwm, int duty_ns, int period_ns)
 	if (pwm == NULL || period_ns == 0 || duty_ns > period_ns) 
 		return -EINVAL; 
 
-
 	pwm->chan->period = period; 
 	duty = duty > ULONG_MAX ? ULONG_MAX : duty; 
 	duty = duty > period ? period : duty; 
@@ -901,6 +911,7 @@ int pwm_config(struct pwm_device *pwm, int duty_ns, int period_ns)
 	//fixup_duty(pwm->chan); 
 	pwm_set_mode(NO_ENABLE_CHANGE,pwm->chan); 
 
+	printk("%s duty percent %d\n",__func__, pwm->chan->duty_percent);
 	return 0; 
 } 
 EXPORT_SYMBOL(pwm_config); 
@@ -921,7 +932,9 @@ void pwm_disable(struct pwm_device *pwm)
 	if (pwm == NULL) { 
 		return; 
 	} 
+	pwm->chan->ctrl_current.s.ch0_act_state = 0;
 	pwm_set_mode(PWM_CTRL_DISABLE,pwm->chan); 
+	
 } 
 EXPORT_SYMBOL(pwm_disable); 
 

@@ -47,7 +47,7 @@
 
 #define MOTOR_NAME		"L293D-DC"
 
-#define PWM_PERIOD		1000000 //nsec
+#define PWM_PERIOD		50000 	//50msec, 20k hz
 	
 
 

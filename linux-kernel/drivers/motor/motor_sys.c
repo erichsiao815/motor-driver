@@ -1,13 +1,20 @@
 /*
  * 	motor-sys.c
  *
- * Copyright (C) 2015 Eric Hsiao <erichsiao815@gmail.com>
+ * Copyright (C) 2015 CC Hsiao
  *
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  *
+ * 
+ * CHANGELOG:
+ * 10.26.2014 - CC Hsiao <erichsiao815@gmail.com>
+ * - first vision modify from led_classs.c & input.c
+ *
+ * 02.22.2015- CC Hsiao <erichsiao815@gmail.com>
+ * - add a dynamic attribute
  */
 
 #include <linux/module.h>
@@ -197,18 +204,39 @@ static ssize_t motor_pos_show(struct device *dev,
 
 static struct device_attribute motor_class_attrs[] = {
 	__ATTR(type, S_IRUGO, motor_type_show, NULL),
-	__ATTR(speed, S_IRUGO|S_IWUGO, motor_speed_show, motor_speed_store),
-	__ATTR(ctl, S_IWUGO, NULL, motor_ctl_store),
 	__ATTR(state, S_IRUGO, motor_state_show, NULL ),
+	//__ATTR(speed, S_IRUGO|S_IWUGO, motor_speed_show, motor_speed_store),
+	//__ATTR(pid, S_IRUGO|S_IWUGO, motor_type_show, NULL),
+	//__ATTR(ctl, S_IWUGO, NULL, motor_ctl_store),
+	//__ATTR(pos, S_IRUGO|S_IWUGO, motor_pos_show, motor_pos_store),
+	__ATTR_NULL,
+};
+
+static struct device_attribute motor_attrs_speed[] = {
+	__ATTR(speed, S_IRUGO|S_IWUGO, motor_speed_show, motor_speed_store),
+	__ATTR_NULL,
+};
+
+static struct device_attribute motor_attrs_ctrl[] = {
+	__ATTR(ctrl, S_IWUGO, NULL, motor_ctl_store),
+	__ATTR_NULL,
+};
+
+static struct device_attribute motor_attrs_pos[] = {
 	__ATTR(pos, S_IRUGO|S_IWUGO, motor_pos_show, motor_pos_store),
 	__ATTR_NULL,
 };
 
+//static struct device_attribute motor_attrs_pid[] = {
+//	__ATTR(pid, S_IRUGO|S_IWUGO, , ),
+//	__ATTR_NULL,
+//};
+
 
 /**
- * led_classdev_register - register a new object of led_classdev class.
+ * motor_classdev_register - register a new object of motor_classdev class.
  * @parent: The device to register.
- * @led_cdev: the led_classdev structure for this device.
+ * @motor_cdev: the motor_classdev structure for this device.
  */
 int motor_classdev_register(struct device *parent, struct motor_classdev *motor_cdev)
 {
@@ -219,7 +247,12 @@ int motor_classdev_register(struct device *parent, struct motor_classdev *motor_
 
 	printk(KERN_DEBUG "Registered motor device: %s\n",
 			motor_cdev->name);
-
+	if (motor_cdev->ctl)
+		device_create_file(motor_cdev->dev, &motor_attrs_ctrl);
+	if((motor_cdev->setspeed) && (motor_cdev->getspeed))
+		device_create_file(motor_cdev->dev, &motor_attrs_speed);
+	if((motor_cdev->setpos) && (motor_cdev->getpos))
+		device_create_file(motor_cdev->dev, &motor_attrs_pos);
 	return 0;
 }
 EXPORT_SYMBOL_GPL(motor_classdev_register);
@@ -288,7 +321,7 @@ static void __exit motor_exit(void)
 subsys_initcall(motor_init);
 module_exit(motor_exit);
 
-MODULE_AUTHOR("Eric Hsiao, erichsiao815@gmail.com");
+MODULE_AUTHOR("CC Hsiao, erichsiao815@gmail.com");
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("Motor sys Interface");
 
