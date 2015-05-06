@@ -15,6 +15,11 @@
  *
  * 02.22.2015- CC Hsiao <erichsiao815@gmail.com>
  * - add a dynamic attribute
+ *
+ * 03.25.2015- CC Hsiao <erichsiao815@gmail.com>
+ * - de-warning
+ * - add mutex for ctrl function
+ *
  */
 
 #include <linux/module.h>
@@ -30,7 +35,9 @@
 #include <linux/hrtimer.h>
 
 
-//DECLARE_RWSEM(motor_lock);
+static char motor_sub_ver[] = "1.01";
+
+static DEFINE_MUTEX(motor_lock);
 
 static struct class motor_class = {
 	.name = "motor",
@@ -74,6 +81,7 @@ static ssize_t motor_ctl_store(struct device *dev, struct device_attribute *attr
 	if(!motor_cdev->ctl)
 		return -EPERM;
 
+	mutex_lock(&motor_lock);		//TBD!!
 	sscanf(buf, "%s %d", cmd, &para);
 
 	if(!strncmp(cmd,"forward",7))
@@ -92,6 +100,7 @@ static ssize_t motor_ctl_store(struct device *dev, struct device_attribute *attr
 		motor_cdev->ctl(motor_cdev, MOTOR_STANDBY, 0);
 	else
 		return  -EPERM;		//cmd error 
+	mutex_unlock(&motor_lock);		//TBD!!
 	return count;
 }
 
@@ -178,7 +187,9 @@ static ssize_t motor_pos_store(struct device *dev, struct device_attribute *attr
 	sscanf(buf, "%d", &pos);
 	if(motor_cdev->setpos)
 	{
+		mutex_lock(&motor_lock);		//TBD!!
 		motor_cdev->setpos(motor_cdev, pos);
+		mutex_unlock(&motor_lock);		//TBD!!
 		return count;
 	}
 	else
@@ -205,27 +216,17 @@ static ssize_t motor_pos_show(struct device *dev,
 static struct device_attribute motor_class_attrs[] = {
 	__ATTR(type, S_IRUGO, motor_type_show, NULL),
 	__ATTR(state, S_IRUGO, motor_state_show, NULL ),
-	//__ATTR(speed, S_IRUGO|S_IWUGO, motor_speed_show, motor_speed_store),
-	//__ATTR(pid, S_IRUGO|S_IWUGO, motor_type_show, NULL),
-	//__ATTR(ctl, S_IWUGO, NULL, motor_ctl_store),
-	//__ATTR(pos, S_IRUGO|S_IWUGO, motor_pos_show, motor_pos_store),
 	__ATTR_NULL,
 };
 
-static struct device_attribute motor_attrs_speed[] = {
-	__ATTR(speed, S_IRUGO|S_IWUGO, motor_speed_show, motor_speed_store),
-	__ATTR_NULL,
-};
+static struct device_attribute motor_attrs_speed = 
+	__ATTR(speed, S_IRUGO|S_IWUGO, motor_speed_show, motor_speed_store);
 
-static struct device_attribute motor_attrs_ctrl[] = {
-	__ATTR(ctrl, S_IWUGO, NULL, motor_ctl_store),
-	__ATTR_NULL,
-};
+static struct device_attribute motor_attrs_ctrl = 
+	__ATTR(ctrl, S_IWUGO, NULL, motor_ctl_store);
 
-static struct device_attribute motor_attrs_pos[] = {
-	__ATTR(pos, S_IRUGO|S_IWUGO, motor_pos_show, motor_pos_store),
-	__ATTR_NULL,
-};
+static struct device_attribute motor_attrs_pos = 
+	__ATTR(pos, S_IRUGO|S_IWUGO, motor_pos_show, motor_pos_store);
 
 //static struct device_attribute motor_attrs_pid[] = {
 //	__ATTR(pid, S_IRUGO|S_IWUGO, , ),
@@ -244,15 +245,16 @@ int motor_classdev_register(struct device *parent, struct motor_classdev *motor_
 				      "%s", motor_cdev->name);
 	if (IS_ERR(motor_cdev->dev))
 		return PTR_ERR(motor_cdev->dev);
-
-	printk(KERN_DEBUG "Registered motor device: %s\n",
-			motor_cdev->name);
+	
+	motor_cdev->state = MOTOR_STANDBY;
 	if (motor_cdev->ctl)
 		device_create_file(motor_cdev->dev, &motor_attrs_ctrl);
 	if((motor_cdev->setspeed) && (motor_cdev->getspeed))
 		device_create_file(motor_cdev->dev, &motor_attrs_speed);
 	if((motor_cdev->setpos) && (motor_cdev->getpos))
 		device_create_file(motor_cdev->dev, &motor_attrs_pos);
+	printk(KERN_DEBUG "Registered motor device: %s\n",
+			motor_cdev->name);
 	return 0;
 }
 EXPORT_SYMBOL_GPL(motor_classdev_register);
@@ -290,7 +292,6 @@ static int motor_resume(struct device *dev)
 
 	if (motor_cdev->flags & MOTOR_SUSPEND_SUPPORT)
 	{
-		//if(motor_cdev->ctl)		motor_cdev->ctl(motor_cdev, motor_cdev->state);
 		motor_cdev->flags &= ~MOTOR_SUSPENDED;
 	}
 	return 0;
@@ -310,6 +311,7 @@ static int __init motor_init(void)
 	motor_class.suspend = motor_suspend;
 	motor_class.resume = motor_resume;
 	motor_class.dev_attrs = motor_class_attrs;
+	printk("motor subsystem version %s\n", motor_sub_ver);
 	return 0;
 }
 
@@ -323,5 +325,5 @@ module_exit(motor_exit);
 
 MODULE_AUTHOR("CC Hsiao, erichsiao815@gmail.com");
 MODULE_LICENSE("GPL");
-MODULE_DESCRIPTION("Motor sys Interface");
+MODULE_DESCRIPTION("Motor Subsystem Interface");
 

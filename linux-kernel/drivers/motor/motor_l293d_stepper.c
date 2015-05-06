@@ -253,7 +253,7 @@ static unsigned int l293d_stepper_getspeed(struct motor_classdev *motor_cdev)
 static void l293d_stepper_setpos(struct motor_classdev *motor_cdev,unsigned int pos)
 {
 	struct l293d_stepper_chdata *pdata = _get_ch_data(motor_cdev); 
-	enum motor_state ctrl;
+	//enum motor_state ctrl;
 	int target = pos;
 
 	if (target > pdata->maxPos) 
@@ -342,11 +342,13 @@ err:
 	if (i > 0) {
 		for (i = i - 1; i >= 0; i--) {
 			if(pdata->data[i].use == 0)
+			{
 				continue;
+			}
 			motor_classdev_unregister(&motor_dev[i]);
 		}
 	}
-			printk("register motor failed\r\n");
+	printk("register motor failed\r\n");
 	return ret;
 }
 
@@ -361,7 +363,9 @@ static int __exit l293d_stepper_remove(struct platform_device *pdev)
 	for (i = 0; i < pdata->num_ch; i++) 
 	{
 		if(pdata->data[i].use == 0)
+		{
 			continue;
+		}
 		motor_classdev_unregister(&motor[i]);
 		printk("motor %s removed \r\n",motor[i].name);
 		hrtimer_cancel(&pdata->data[i].hrtimer);
@@ -378,7 +382,7 @@ static struct l293d_stepper_chdata l293d_stepper_data[] =
 		.use = 1,
 		.name = "stepper",
 		.type = MOTOR_TYPE_STEPPER,
-		.state = MOTOR_STANDBY,
+		//.state = MOTOR_STANDBY,
 		.flag = MOTOR_SUSPEND_SUPPORT,
 		.pps = 100,		 //TBD
 		.pos =0,

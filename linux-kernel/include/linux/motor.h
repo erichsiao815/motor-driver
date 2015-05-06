@@ -48,15 +48,15 @@ enum motor_state {
 struct motor_classdev {
 	const char			*name;
 	unsigned int 			type;
-	enum motor_state		state;
-	unsigned int			flags;
+	enum motor_state		state;		// motor current state
+	unsigned int			flags;		// is SUSPEND needed for motor ? (MOTOR_SUSPEND_SUPPORT)
 	void					*data;		// motor data
 
 	struct device		*dev;
 	
 	void		(*ctl)(struct motor_classdev *motor_cdev,enum motor_state ctrl, int step);
 	enum motor_state	(*getstate)(struct motor_classdev *led_cdev);
-	void		(*setspeed)(struct motor_classdev *motor_cdev,unsigned int speed);		// dc is duty, stepper is pps/ppm
+	void		(*setspeed)(struct motor_classdev *motor_cdev,unsigned int speed);		//unit of dc is duty, stepper is pps/ppm
 	unsigned int		(*getspeed)(struct motor_classdev *motor_cdev);
 	void		(*setpos)(struct motor_classdev *motor_cdev,unsigned int pos);	
 	unsigned int		(*getpos)(struct motor_classdev *motor_cdev);

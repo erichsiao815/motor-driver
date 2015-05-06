@@ -242,7 +242,9 @@ err:
 	if (i > 0) {
 		for (i = i - 1; i >= 0; i--) {
 			if(pdata->data[i].use == 0)
+			{
 				continue;
+			}
 			motor_classdev_unregister(&motor_dev[i]);
 		}
 	}
@@ -261,7 +263,9 @@ static int __exit motor_dc_remove(struct platform_device *pdev)
 	for (i = 0; i < pdata->num_ch; i++) 
 	{
 		if(pdata->data[i].use == 0)
+		{
 			continue;
+		}
 		motor_classdev_unregister(&motor[i]);
 		printk("motor %s removed \r\n",motor[i].name);
 		if(pdata->data[i].pwm > 0) pwm_free(pdata->data[i].pwm);
@@ -277,7 +281,6 @@ static struct motor_l293d_ch_data l293d_data[] =
 		.use = 1,
 		.name = "wheel-right",
 		.type = MOTOR_TYPE_DC,
-		.state = MOTOR_STANDBY,
 		.flag = MOTOR_SUSPEND_SUPPORT,
 		.duty = 100,
 		.pwmid = 1 ,		//pwm using for all wheel
@@ -290,7 +293,6 @@ static struct motor_l293d_ch_data l293d_data[] =
 		.use = 1,
 		.name = "wheel-left",
 		.type = MOTOR_TYPE_DC,
-		.state = MOTOR_STANDBY,
 		.flag = MOTOR_SUSPEND_SUPPORT,
 		.duty = 100,
 		.pwmid = -1 ,		// using same pwm with right wheel 
